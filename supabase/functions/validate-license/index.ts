@@ -38,7 +38,16 @@ Deno.serve(async (req) => {
   const url=Deno.env.get("SUPABASE_URL"), key=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if(!url || !key) return reply({error:"server_configuration"},503);
   const central=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}});
-  const {data,error}=await central.rpc("markys_validate_license",{p_user:user.id,p_device:device});
+  let {data,error}=await central.rpc("markys_validate_license",{p_user:user.id,p_device:device});
+  if(!error && data?.reason==="not_registered"){
+   const profile=body?.profile ?? user.user_metadata ?? {};
+   const name=String(profile.name ?? "").trim(), phone=String(profile.phone ?? "").trim(), document=String(profile.document ?? "").replace(/\D/g,"");
+   if(!user.email_confirmed_at || typeof user.email!=="string") return reply({allowed:false,reason:"email_unconfirmed"});
+   if(name.length<2 || name.length>200 || phone.length<8 || phone.length>30 || ![11,14].includes(document.length)) return reply({allowed:false,reason:"profile_required"});
+   const trial=await central.rpc("markys_start_trial",{p_user:user.id,p_name:name,p_email:user.email,p_phone:phone,p_document:document});
+   if(trial.error) return reply({allowed:false,reason:"trial_registration_failed"});
+   ({data,error}=await central.rpc("markys_validate_license",{p_user:user.id,p_device:device}));
+  }
   if(error) return reply({error:"validation_unavailable"},503);
   if(data?.allowed===true){
    let lease=null;
