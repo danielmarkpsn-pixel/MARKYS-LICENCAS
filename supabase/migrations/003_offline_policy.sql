@@ -1,7 +1,7 @@
 begin;
 alter table public.markys_licenses add column if not exists offline_hours integer not null default 24 check (offline_hours in (0,2,6,12,24));
 create or replace function public.markys_validate_license(p_user uuid,p_device uuid)
-returns jsonb language plpgsql security definer set search_path='' as $$
+returns jsonb language plpgsql security definer set search_path='' as $validate$
 declare l public.markys_licenses%rowtype; n integer;
 begin
  if p_user is null or p_device is null then raise exception 'Identificação inválida'; end if;
@@ -26,18 +26,18 @@ begin
  update public.markys_devices set last_seen_at=now() where license_id=l.id and device_id=p_device;
  end if;
  return jsonb_build_object('allowed',true,'reason','active','expires_at',l.expires_at,'server_time',now(),'offline_hours',l.offline_hours);
-end $$;
+end $validate$;
 revoke all on function public.markys_validate_license(uuid,uuid) from public,anon,authenticated;
 grant execute on function public.markys_validate_license(uuid,uuid) to service_role;
 create or replace function public.markys_admin_offline_hours(p_id uuid,p_hours integer)
-returns void language plpgsql security definer set search_path='' as $$
+returns void language plpgsql security definer set search_path='' as $admin$
 begin
  if not public.markys_is_admin() then raise exception 'Acesso negado' using errcode='42501'; end if;
  if p_hours is null or p_hours not in (0,2,6,12,24) then raise exception 'Prazo inválido'; end if;
  update public.markys_licenses set offline_hours=p_hours,updated_at=now() where id=p_id;
  if not found then raise exception 'Licença não encontrada'; end if;
  insert into public.markys_audit(actor,event,license_id,details) values(auth.uid(),'offline_hours',p_id,jsonb_build_object('hours',p_hours));
-end $$;
+end $admin$;
 revoke all on function public.markys_admin_offline_hours(uuid,integer) from public,anon,authenticated;
 grant execute on function public.markys_admin_offline_hours(uuid,integer) to authenticated;
 commit;
