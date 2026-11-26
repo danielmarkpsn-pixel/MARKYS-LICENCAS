@@ -1,4 +1,4 @@
-import {useEffect,useMemo,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import type {FormEvent} from 'react';
 import {supabase,configured} from './client';
 import type {Session} from '@supabase/supabase-js';
@@ -23,6 +23,7 @@ const initial:Record<string,RecordData>={products:{active:true},customers:{},pla
 function description(t:string,row:RecordData){if(t==='products'||t==='customers'||t==='plans')return str(row.name);if(t==='licenses')return short(row.id)+' · '+str(row.status);if(t==='payments')return money(row.amount_cents)+' · '+str(row.status);return short(row.id);}
 export default function App(){
  const [session,setSession]=useState<Session|null>(null);
+ const activeUser=useRef<string|null>(null);
  const [ready,setReady]=useState(false);
  const [allowed,setAllowed]=useState(false);
  const [email,setEmail]=useState('');
@@ -36,8 +37,8 @@ export default function App(){
  const [menu,setMenu]=useState(false);
  const [search,setSearch]=useState('');
  useEffect(()=>{
-   supabase.auth.getSession().then(({data})=>{setSession(data.session);setReady(true);}).catch(()=>setReady(true));
-   const {data:listener}=supabase.auth.onAuthStateChange((_event,next)=>{setSession(next);setAllowed(false);setData({});});
+   supabase.auth.getSession().then(({data})=>{activeUser.current=data.session?.user.id??null;setSession(data.session);setReady(true);}).catch(()=>setReady(true));
+   const {data:listener}=supabase.auth.onAuthStateChange((_event,next)=>{const id=next?.user.id??null;if(activeUser.current!==id){activeUser.current=id;setAllowed(false);setData({});}setSession(next);});
    return ()=>listener.subscription.unsubscribe();
  },[]);
  useEffect(()=>{if(session)void refresh();},[session?.user.id]);
@@ -82,7 +83,7 @@ export default function App(){
    setBusy(false);
  }
  const key=sectionKey[section],rows=data[key]||[];
- const filtered=useMemo(()=>rows.filter(row=>JSON.stringify(row).toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR'))),[rows,search]);
+ const filtered=useMemo(()=>rows.filter(row=>(JSON.stringify(row)??'').toLocaleLowerCase('pt-BR').includes(search.toLocaleLowerCase('pt-BR'))),[rows,search]);
  const display=(table:string,id:unknown)=>{const r=(data[table]||[]).find(x=>x.id===id);return r?description(table,r):short(id);};
  if(!configured)return <main className="center"><section className="auth"><h1>MARKYS LICENÇAS</h1><p>Configure as variáveis VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY antes de acessar.</p></section></main>;
  if(!ready)return <main className="center">Iniciando MARKYS LICENÇAS…</main>;
