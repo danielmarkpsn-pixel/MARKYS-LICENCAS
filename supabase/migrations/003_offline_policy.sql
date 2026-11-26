@@ -30,14 +30,14 @@ end $$;
 revoke all on function public.markys_validate_license(uuid,uuid) from public,anon,authenticated;
 grant execute on function public.markys_validate_license(uuid,uuid) to service_role;
 create or replace function public.markys_admin_offline_hours(p_id uuid,p_hours integer)
-returns void language plpgsql security definer set search_path='' as $
+returns void language plpgsql security definer set search_path='' as $$
 begin
  if not public.markys_is_admin() then raise exception 'Acesso negado' using errcode='42501'; end if;
  if p_hours is null or p_hours not in (0,2,6,12,24) then raise exception 'Prazo inválido'; end if;
  update public.markys_licenses set offline_hours=p_hours,updated_at=now() where id=p_id;
  if not found then raise exception 'Licença não encontrada'; end if;
  insert into public.markys_audit(actor,event,license_id,details) values(auth.uid(),'offline_hours',p_id,jsonb_build_object('hours',p_hours));
-end $;
+end $$;
 revoke all on function public.markys_admin_offline_hours(uuid,integer) from public,anon,authenticated;
 grant execute on function public.markys_admin_offline_hours(uuid,integer) to authenticated;
 commit;
