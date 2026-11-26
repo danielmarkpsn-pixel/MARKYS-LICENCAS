@@ -1,4 +1,5 @@
 import {useEffect,useMemo,useState} from 'react';
+import type {FormEvent} from 'react';
 import {supabase,configured} from './client';
 import type {Session} from '@supabase/supabase-js';
 import {LayoutDashboard,Boxes,Users,KeyRound,Smartphone,Wallet,ScrollText,Settings,LogOut,RefreshCcw,ShieldCheck,Plus,Lock,Unlock} from 'lucide-react';
@@ -53,7 +54,7 @@ export default function App(){
    } catch(e){setNotice('Falha ao consultar o banco: '+(e instanceof Error?e.message:String(e)));}
    finally{setBusy(false);}
  }
- async function login(e:React.FormEvent){
+ async function login(e:FormEvent){
    e.preventDefault();setBusy(true);setNotice('');
    const {error}=await supabase.auth.signInWithPassword({email,password});
    if(error)setNotice(error.message);
