@@ -66,7 +66,7 @@ export default function App(){
    try{
      const payload={...editing.value};
      for(const f of fields[editing.table]||[]){
-       if(f[2]==='number')payload[f[0]]=payload[f[0]===''||payload[f[0]]==null?null:Number(payload[f[0]]);
+       if(f[2]==='number')payload[f[0]]=payload[f[0]]===''||payload[f[0]]==null?null:Number(payload[f[0]]);
        if(f[2]==='text'&&typeof payload[f[0]]==='string')payload[f[0]]=(payload[f[0]] as string).trim();
      }
      const {error}=await supabase.rpc('markys_admin_save',{p_table:editing.table,p_data:payload});
