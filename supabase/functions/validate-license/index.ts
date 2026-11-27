@@ -27,7 +27,8 @@ Deno.serve(async (req) => {
  const auth = req.headers.get("Authorization");
  if(!auth || !/^Bearer [^\s]+$/.test(auth)) return reply({error:"unauthorized"},401);
  try {
-  const body = await req.json();
+  let body;
+  try {body=await req.json();} catch {return reply({error:"invalid_json"},400);}
   const device = body?.device_id;
   if(typeof device !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(device)) return reply({error:"invalid_device"},400);
   const userResponse = await fetch(pdvUrl+"/auth/v1/user", {headers:{apikey:pdvKey,Authorization:auth},signal:AbortSignal.timeout(10000)});
@@ -52,8 +53,9 @@ Deno.serve(async (req) => {
   if(data?.allowed===true){
    let lease=null;
    try {lease=await signLease(user.id,device,data);} catch {console.error("lease signing unavailable");}
+   if(Number(data.offline_hours)>0&&!lease)console.warn("Offline authorization unavailable; check signing secret and policy");
    return reply({...data,offline_lease:lease});
   }
   return reply(data);
- } catch { return reply({error:"request_failed"},400); }
+ } catch { console.error("License validation temporarily unavailable"); return reply({error:"request_failed"},503); }
 });
